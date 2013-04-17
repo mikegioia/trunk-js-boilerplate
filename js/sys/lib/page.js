@@ -18,7 +18,7 @@ var PageClass = Base.extend({
         this.scrollTo( 'top' );
     },
 
-    // miscellaneous page methods
+    // highlight an element on the page
     //
     highlight: function( selector /* numTimes, fgColor, bgColor */ ) {
         var $item = ( _.isString( selector ) )
