@@ -43,7 +43,8 @@ var RequestClass = Base.extend({
         },
         setStatus: true,
         statusMessage: null,
-        expire_notification: true
+        expireNotification: true,
+        redirectLast: false
     },
     
     // initialize the ajax/request library
@@ -62,7 +63,7 @@ var RequestClass = Base.extend({
 
             // change default notification expiration
             //
-            self.defaults.expire_notification = App.Config.message_expire;
+            self.defaults.expireNotification = App.Config.message_expire;
         });
         
         App.Log.debug( 'Request library loaded', 'sys' );
@@ -90,19 +91,23 @@ var RequestClass = Base.extend({
         var self = this,
             options = _.extend( {}, this.defaults, formOptions );
 
-        var successCallback = ( ! _.isUndefined( formOptions.onSuccess ) )
+        var successCallback = ( ! _.isUndefined( formOptions.onSuccess ) 
+            && _.isFunction( formOptions.onSuccess ))
             ? formOptions.onSuccess
             : function() { return true; };
             
-        var postSuccessCallback = ( ! _.isUndefined( formOptions.postSuccess ) )
+        var postSuccessCallback = ( ! _.isUndefined( formOptions.postSuccess ) 
+            && _.isFunction( formOptions.postSuccess ))
             ? formOptions.postSuccess
             : function() { return true; };
             
-        var errorCallback = ( ! _.isUndefined( formOptions.onError ) )
+        var errorCallback = ( ! _.isUndefined( formOptions.onError ) 
+            && _.isFunction( formOptions.onError ))
             ? formOptions.onError
             : function() { return true; };
             
-        var beforeSendCallback = ( ! _.isUndefined( formOptions.beforeSend ) )
+        var beforeSendCallback = ( ! _.isUndefined( formOptions.beforeSend )
+            && _.isFunction( formOptions.beforeSend ))
             ? formOptions.beforeSend
             : function() { return true; };
 
@@ -118,8 +123,6 @@ var RequestClass = Base.extend({
         };
         
         options.success = function( response, status, xhr, jqForm ) {
-            App.Log.info( 'Completed ajax request with status: ' + App.Util.json_encode( status ) );
-
             // set up defaults if we didn't get something in the response
             //
             response = ( response ) ? response : {};
@@ -129,6 +132,10 @@ var RequestClass = Base.extend({
             response.message = ( ! _.isUndefined( response.message ) && response.message != null )
                 ? response.message
                 : '';
+
+            App.Log.info( 
+                'Completed ajax request with status: ' + 
+                App.Util.json_encode( response.status ));
 
             // process any hooks if there are any
             //
@@ -143,13 +150,18 @@ var RequestClass = Base.extend({
 
             // handle the response
             //
+            var redirectFunction = null;
+
             if ( ! _.isUndefined( response.redirect ) && response.redirect != null && response.redirect.length ) {
-                App.Message.setStatus(
-                    App.Lang.redirecting, 
-                    'request'
-                );
-                window.location = response.redirect;
-                return;
+                redirectFunction = function() {
+                    App.Message.setStatus( App.Lang.redirecting, 'request' );
+                    window.location = response.redirect;
+                    return;
+                };
+            }
+
+            if ( _.isFunction( redirectFunction ) && ! options.redirectLast ) {
+                return redirectFunction();
             }
           
             if ( ! _.isUndefined( response.status ) ) {
@@ -165,7 +177,7 @@ var RequestClass = Base.extend({
                             response.message, 
                             App.Const.status_error, 
                             false, 
-                            options.expire_notification );
+                            options.expireNotification );
                     }
                     else {
                         App.Message.notify( 
@@ -187,7 +199,7 @@ var RequestClass = Base.extend({
                             response.message, 
                             App.Const.status_success,
                             false,
-                            options.expire_notification );
+                            options.expireNotification );
                     }
                 }
                 else if ( response.status == App.Const.status_info && response.message.length ) {
@@ -195,7 +207,7 @@ var RequestClass = Base.extend({
                         response.message, 
                         App.Const.status_info,
                         false,
-                        options.expire_notification );
+                        options.expireNotification );
                     
                     if ( ! successCallback( response, status, xhr, jqForm ) ) {
                         if ( options.setStatus ) {
@@ -233,6 +245,10 @@ var RequestClass = Base.extend({
             }
             
             postSuccessCallback( response, status, xhr, jqForm );
+
+            if ( _.isFunction( redirectFunction ) && options.redirectLast ) {
+                return redirectFunction();
+            }
         };
         
         if ( _.isUndefined( options.error ) || ! options.error ) {
@@ -256,7 +272,7 @@ var RequestClass = Base.extend({
                                     App.Lang.request_local_storage_enabled, 
                                     App.Const.status_info,
                                     false,
-                                    options.expire_notification
+                                    options.expireNotification
                                 );
                             }
                             
@@ -281,7 +297,7 @@ var RequestClass = Base.extend({
                                     App.Lang.request_local_storage_disabled, 
                                     App.Const.status_error,
                                     false,
-                                    options.expire_notification
+                                    options.expireNotification
                                 );
                             }
                             
