@@ -98,6 +98,7 @@ var ModalClass = Base.extend({
         }
 
         options = $.extend( {}, this.options, options );
+        var buttonClasses = App.Config.modal_button_classes;
 
         // hide any tours that are open
         //
@@ -109,12 +110,6 @@ var ModalClass = Base.extend({
         //
         this.close( false );
 
-        // display the overlay
-        //
-        if ( options.displayOverlay ) {
-            this.$eltModalOverlay.show().fadeTo( 0, 0.6 );
-        }
-        
         // set the modal content
         //
         if ( options.htmlSource ) {
@@ -138,7 +133,7 @@ var ModalClass = Base.extend({
         //
         if ( options.cancelButton ) {
             jQuery( '<a/>', {
-                'class' : 'aj-close aj-button left red',
+                'class' : 'aj-close aj-button left red ' + buttonClasses,
                 'href' : 'javascript:;',
                 'text' : App.Lang.cancel
             }).appendTo( this.$eltModal.find( '.aj-buttons' ) );
@@ -158,7 +153,8 @@ var ModalClass = Base.extend({
                 var button = options.buttons[ i ];
                 
                 jQuery( '<a/>', {
-                    'class' : 'aj-button aj-button-callback',
+                    'class' : 'aj-button aj-button-callback blue ' + 
+                        button.classes + ' ' + buttonClasses,
                     'href' : 'javascript:;',
                     'text' : button.text,
                     'id' : 'aj-modal-button-' + i
@@ -218,16 +214,40 @@ var ModalClass = Base.extend({
             this.$eltModal.addClass( options.sizeClass );
         }
 
+        // check for content classes
+        //
+        if ( App.Config.modal_content_classes ) {
+            this.$eltModal.find( '.aj-modal-content' ).addClass( 
+                App.Config.modal_content_classes );
+        }
+
         // check if we have a callback after the modal is rendered
         //
-        if ( options.callback && _.isFunction( options.callback ) ) {
-            options.callback();
-        }
+        callback = ( options.callback && _.isFunction( options.callback ) )
+            ? options.callback
+            : function() {};
 
         // resize and reposition the modal
         //
         var self = this;
-        this.repositionModal( true, options.callback );
+        
+        // display the overlay
+        //
+        if ( options.displayOverlay ) {
+            ( App.Config.effect_animate )
+                ? this.$eltModalOverlay.fadeTo( 200, 0.6 )
+                : this.$eltModalOverlay.show().fadeTo( 0, 0.6 );
+        }
+
+        // hide the html scrollbar if specified
+        //
+        if ( App.Config.modal_hide_html_scrollbar ) {
+            $( 'html' ).css({
+                'overflow' : 'hidden'
+            });
+        }
+
+        this.repositionModal( true, callback );
 
         Mousetrap.bind( [ 'escape' ], function(e) {
             if ( self.$eltModal.is( ':visible' ) ) {
@@ -293,23 +313,29 @@ var ModalClass = Base.extend({
                             htmlString: response.data.html,
                             headerText: response.data.header
                         }, 
-                        options
-                    );
+                        options );
                     self.show( options );
                     callback( response );
                 }
-            }
-        );
+            });
     },
     
     // adds a button with a callback to the modal
     //
-    addButton: function( text, callback ) {
+    addButton: function( text, callback /*, options */ ) {
         text = text || App.Lang.submit;
-        this.options.buttons.push({
-            text: text,
-            callback: callback
-        });
+
+        var options = ( arguments.length > 2 )
+                ? arguments[ 2 ]
+                : {},
+            defaults = {
+                text: text,
+                callback: callback,
+                classes: ''
+            };
+
+        options = $.extend( {}, defaults, options );
+        this.options.buttons.push( options );
     },
 
     // update the callback button
@@ -322,7 +348,7 @@ var ModalClass = Base.extend({
     },
      
     close: function( /* clickEvent = true */ ) {
-        clickEvent = ( arguments.length > 0 )
+        var clickEvent = ( arguments.length > 0 )
             ? arguments[ 0 ]
             : true;
         
@@ -331,8 +357,22 @@ var ModalClass = Base.extend({
         if ( clickEvent ) {
             App.Log.debug( "Closing modal window" );
 
-            this.$eltModalOverlay.hide();
-            this.$eltModal.hide();
+            if ( App.Config.effect_animate ) {
+                this.$eltModalOverlay.fadeOut( 'fast' );
+                this.$eltModal.fadeOut( 'fast' );
+            }
+            else {
+                this.$eltModalOverlay.hide(); 
+                this.$eltModal.hide(); 
+            }
+        }
+
+        // show the html scrollbar if specified
+        //
+        if ( App.Config.modal_hide_html_scrollbar ) {
+            $( 'html' ).css({
+                'overflow' : 'auto'
+            });
         }
 
         this.$eltModal.attr( 'class', '' );
@@ -360,6 +400,7 @@ var ModalClass = Base.extend({
     },
     
     repositionModal: function( /* show, callback */ ) {
+
         var show = ( arguments.length > 0 )
             ? arguments[ 0 ]
             : false;
@@ -375,10 +416,7 @@ var ModalClass = Base.extend({
             'height' : 'auto'
         });
 
-        // the modal height needs to be aware of the screen height. we can display
-        // the modal up until it hits a specified padding inside the window.
-        // once the height is too tall for the window, we need to set an overflow
-        // scroll to the content area.
+        // two different positioning calculations: centered and top
         //
         // first we need to adjust for retina displays reporting incorrect resolutions though.
         // e.g., iPad 3 shows 1024x768 still but uses "2" for its pixel ratio to account.
@@ -390,28 +428,52 @@ var ModalClass = Base.extend({
             contentHeight = this.$eltModal.find( '.aj-modal-content' ).outerHeight() * ratio,
             width = this.$eltModal.outerWidth() * ratio,
             windowWidth = $( window ).width() * ratio;
-            
-        if ( height > windowHeight - 20 ) {
+
+        if ( show ) {
+            this.$eltModal.hide();
+        }
+
+        // the modal height needs to be aware of the screen height. we can display
+        // the modal up until it hits a specified padding inside the window.
+        // once the height is too tall for the window, we need to set an overflow
+        // scroll to the content area.
+        //
+        if ( height > windowHeight - ( App.Config.modal_positioning_top_px ) ) {
             var fixedHeight = height - contentHeight,
-                newHeight = windowHeight - 20;
+                newHeight = windowHeight - 27;
             var newContentHeight = newHeight - fixedHeight;
             
             this.$eltModal.find( '.aj-modal-content' ).css({
                 'height' : newContentHeight
             });
+            this.$eltModal.css({ 
+                'top' : 10, 
+                'left' : ( windowWidth / 2 ) - ( width / 2 ) 
+            });
             
             height = newHeight;
         }
-        else {
-            this.$eltModal.find( '.aj-modal-content' ).css({
-                'height' : 'auto'
+        else if ( App.Config.modal_positioning === 'middle' ) {
+            this.$eltModal.css({ 
+                'top' : ( windowHeight / 2 ) - ( height / 2 ), 
+                'left' : ( windowWidth / 2 ) - ( width / 2 ) 
+            });
+        }
+        else { // top
+            this.$eltModal.css({ 
+                'top' : App.Config.modal_positioning_top_px, 
+                'left' : ( windowWidth / 2 ) - ( width / 2 ) 
             });
         }
 
-        this.$eltModal.css({ 
-            'top' : ( windowHeight / 2 ) - ( height / 2 ), 
-            'left' : ( windowWidth / 2 ) - ( width / 2 ) 
-        });
+        if ( show ) {
+            if ( App.Config.effect_animate ) {
+                this.$eltModal.fadeIn( 'fast' );
+            }
+            else {
+                this.$eltModal.show(); 
+            }
+        }
 
         if ( _.isFunction( callback ) ) {
             callback();
