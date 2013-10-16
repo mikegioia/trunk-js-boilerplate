@@ -534,7 +534,7 @@ var PagerClass = Base.extend({
                 // scroll to the top of the container (plus some padding) if it's enabled
                 //
                 if ( options.scrollOnUpdate == true ) {
-                    var pos = Math.max( $container.position().top - 10 + options.scrollPad, 0 );
+                    var pos = Math.max( $container.offset().top - 10 + options.scrollPad, 0 );
                     $( 'body' ).scrollTo( pos, 250 );
                 }
 
@@ -664,6 +664,7 @@ var PagerClass = Base.extend({
             var isFiltered = $( this ).data( 'filter' ),
                 filterName = $( this ).data( 'filtername' ),
                 filterType = $( this ).data( 'filtertype' ),
+                filterSize = $( this ).data( 'filtersize' ),
                 filterPlaceholder = $( this ).data( 'filterplaceholder' ),
                 filterValue = $( this ).data( 'filtervalue' ),
                 isSorted = $( this ).data( 'sort' ),
@@ -676,9 +677,14 @@ var PagerClass = Base.extend({
                 // create the node 
                 //
                 headerCount++;
-                
+
+                // check if there's a size class
+                //
+                var sizeClass = ( filterSize )
+                    ? ' aj-size-' + filterSize
+                    : '';
                 var $node = jQuery( '<div/>', {
-                    'class' : 'aj-th-filter'
+                    'class' : 'aj-th-filter' + sizeClass
                 });
                 var $clear = jQuery( '<a/>', {
                     'class' : 'aj-field-clear aj-th-filter-clear',
