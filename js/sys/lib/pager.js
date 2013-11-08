@@ -516,28 +516,6 @@ var PagerClass = Base.extend({
                 //
                 var $container = $( '#' + options.containerId );
 
-                if ( $container.is( "table" ) ) {
-                    if ( $container.data( 'tbodys' ) ) {
-                        $container.find( 'tbody' ).remove();
-                        $container.find( 'thead' ).after( response.data.html );
-                    }
-                    else {
-                        $container.find( 'tbody' ).html( response.data.html );
-                    }
-                }
-                else {
-                    ( options.append )
-                        ? $container.append( response.data.html )
-                        : $container.html( response.data.html );
-                }
-
-                // scroll to the top of the container (plus some padding) if it's enabled
-                //
-                if ( options.scrollOnUpdate == true ) {
-                    var pos = Math.max( $container.offset().top - 10 + options.scrollPad, 0 );
-                    $( 'body' ).scrollTo( pos, 250 );
-                }
-
                 // if paging options came back, update them otherwise update with
                 // the options passed in.
                 //
@@ -547,6 +525,36 @@ var PagerClass = Base.extend({
                     options.count = response.pager.pagingcount;
                     options.pageLen = response.pager.paginglimit;
                     options.offset = response.pager.pagingoffset;
+                }
+
+                if ( $container.is( "table" ) ) {
+                    if ( $container.data( 'tbodys' ) ) {
+                        $container.find( 'tbody' ).remove();
+                        $container.find( 'thead' ).after( response.data.html );
+                    }
+                    else {
+                        if ( options.append && parseInt( options.offset ) > 0 ) {
+                            $container.find( 'tbody' ).append( response.data.html );
+                        }
+                        else {
+                            $container.find( 'tbody' ).html( response.data.html );
+                        }
+                    }
+                }
+                else {
+                    if ( options.append && parseInt( options.offset ) > 0 ) {
+                        $container.append( response.data.html );
+                    }
+                    else {
+                        $container.html( response.data.html );
+                    }
+                }
+
+                // scroll to the top of the container (plus some padding) if it's enabled
+                //
+                if ( options.scrollOnUpdate == true ) {
+                    var pos = Math.max( $container.offset().top - 10 + options.scrollPad, 0 );
+                    $( 'body' ).scrollTo( pos, 250 );
                 }
 
                 self.render( options );
@@ -882,7 +890,11 @@ var PagerClass = Base.extend({
             pagerOptions[ 'sort' ] = fieldName;
             pagerOptions.sortDir = direction;
             pagerOptions.filterData = self.getFilterData( options );
-            
+
+            if ( options[ 'type' ] == 'loadmore' ) {
+                pagerOptions.offset = 0;
+            }
+
             $( '#' + options.containerId + ' .aj-th-filter-sort' ).removeClass( 'on' );
             $( this ).removeClass( 'asc desc' ).addClass( direction ).addClass( 'on' );
 
